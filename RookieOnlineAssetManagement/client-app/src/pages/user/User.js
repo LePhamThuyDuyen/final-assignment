@@ -18,6 +18,7 @@ function _refreshParams() {
   params.sortFullName = 0;
   params.sortDate = 0;
   params.sortType = 0;
+  params.page = 1;
 }
 
 export default function User() {
@@ -32,31 +33,8 @@ export default function User() {
   const modalDetail = useNSDetailModal();
 
   const { modalAlert, modalLoading } = useNSModals();
-  modalConfirm.config({
-    message: "Do you want to disable this user?",
-    btnName: "Disable",
-    onSubmit: (item) => {
-      modalLoading.show();
-      http
-        .delete("/api/users/" + item.userId)
-        .then((resp) => {
-          _refreshParams();
-          _fetchData();
-          modalAlert.show({
-            title: "Disable user",
-            msg: "Disable user successfully",
-          });
-        })
-        .catch((err) => {
-          showDisableModal();
-        })
-        .finally(() => {
-          modalLoading.close();
-        });
-    },
-  });
 
-  const showDisableModal = (itemId) => {
+  const showDisableModal = () => {
     let msg = (
       <>
         Cannot delete the asset because it belongs to one or more historical
@@ -111,11 +89,41 @@ export default function User() {
     _fetchData();
   };
 
+  const handleSearchKey = () => {
+    _refreshParams();
+    params.query = "";
+    _fetchData();
+  };
+
+
   const handleEdit = (item) => {
     history.push("/users/" + item.userId);
   };
 
   const handleDelete = (item) => {
+    modalConfirm.config({
+      message: "Do you want to disable this user?",
+      btnName: "Disable",
+      onSubmit: (item) => {
+        modalLoading.show();
+        http
+          .delete("/api/users/" + item.userId)
+          .then((resp) => {
+            _refreshParams();
+            _fetchData();
+            modalAlert.show({
+              title: "Disable user",
+              msg: "Disable user successfully",
+            });
+          })
+          .catch((err) => {
+            showDisableModal();
+          })
+          .finally(() => {
+            modalLoading.close();
+          });
+      },
+    });
     modalConfirm.show(item);
   };
 
@@ -142,7 +150,7 @@ export default function User() {
           <UserFilterState onChange={handleFilterType} />
         </Col>
         <Col xs={4}>
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar onSearch={handleSearch} onChangeKey={handleSearchKey} />
         </Col>
         <Col style={{ textAlign: "right" }}>
           <Link to="/new-user">
