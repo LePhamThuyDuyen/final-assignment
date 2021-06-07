@@ -4,6 +4,7 @@ import http from "../../ultis/httpClient";
 import AssetForm from "./assetForm";
 import { stateOptions } from "../../enums/assetState";
 import { useNSModals } from "../../containers/ModalContainer";
+import { PageContext } from "../../containers/PageLayout";
 
 const stateAssetEdit = stateOptions.slice(1);
 const stateAssetCreate = stateOptions.filter(
@@ -16,6 +17,7 @@ export default function AssetDetail(props) {
   const [nameHeader, setnameHeader] = React.useState("");
   const [stateForm, setStateForm] = React.useState([]);
   const history = useHistory();
+  const pageContext = React.useContext(PageContext);
   //modal
   const { modalLoading, modalAlert } = useNSModals();
   React.useEffect(() => {
@@ -51,17 +53,16 @@ export default function AssetDetail(props) {
         .put("/api/asset/" + id, asset)
         .then((resp) => {
           console.log(resp.data);
-          history.push({
-            pathname: "/assets",
-            state: {
-              data: resp.data,
-            },
+          pageContext.setData({
+            data: resp.data,
+            key: "asset",
           });
+          history.push("/assets");
         })
         .catch((err) => {
           modalAlert.show({
             title: "Error",
-            msg: err,
+            msg: err.response.data,
           });
         })
         .finally(() => {
@@ -71,12 +72,16 @@ export default function AssetDetail(props) {
       http
         .post("/api/asset", asset)
         .then((resp) => {
+          pageContext.setData({
+            data: resp.data,
+            key: "asset",
+          });
           props.history.push("/assets");
         })
         .catch((err) => {
           modalAlert.show({
             title: "Error",
-            msg: err,
+            msg: err.response.data,
           });
         })
         .finally(() => {
