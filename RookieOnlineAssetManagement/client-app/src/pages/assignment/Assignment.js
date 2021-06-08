@@ -12,10 +12,12 @@ import AssignmenttFilterState from "./AssignmenttFilterState";
 import AssignmenttFilterDate from "./AssignmenttFilterDate";
 import NSDetailModal, { useNSDetailModal } from "../../common/NSDetailModal";
 import { assignmentOptions } from "../../enums/assignmentState";
+import { PageContext } from "../../containers/PageLayout.js";
 
 let params = {};
 
 function _refreshParams() {
+  params.sortNo = 0;
   params.sortAssetId = 0;
   params.sortAssetName = 0;
   params.sortAssignedTo = 0;
@@ -30,6 +32,7 @@ export default function Assignment() {
   const [totalPages, setTotalPages] = React.useState(0);
   const [pageCurrent, setPageCurrent] = React.useState(0);
   const [itemDetail, setItemDetail] = React.useState(null);
+  const pageContext = React.useContext(PageContext);
   const history = useHistory();
   //modal
   const modalConfirm = useNSConfirmModal();
@@ -38,8 +41,8 @@ export default function Assignment() {
 
   React.useEffect(() => {
     params = {
-      sortNo: 1,
-      sortAssetId: 1,
+      sortNo: 0,
+      sortAssetId: 0,
       sortAssetName: 0,
       sortAssignedTo: 0,
       sortAssignedBy: 0,
@@ -49,25 +52,34 @@ export default function Assignment() {
       pageSize: 8,
       page: 1,
       StateAssignments: [],
-      AssignedDateAssignment: "",
+      AssignedDate: "",
     };
     _fetchData();
   }, []);
 
-  React.useEffect(() => {
-    console.log(assignmentData);
-  }, [assignmentData]);
-
   const _fetchData = () => {
+    pageContext?.payload ? (params.pageSize = 7) : (params.pageSize = 8);
+    //
     http
       .get("/api/assignments" + _createQuery(params))
       .then(({ data, headers }) => {
         let totalPages = headers["total-pages"];
         let totalItems = headers["total-item"];
-        _addFieldNo(data, params.page, totalItems);
-        setAssignment(data);
+        let val = data;
+        console.log(data);
+        if (pageContext?.payload) {
+          if (pageContext.payload.key === "assignment") {
+            val.unshift(pageContext?.payload.data);
+            pageContext.setData(null);
+          }
+        }
+        _addFieldNo(val, params.page, totalItems);
+        setAssignment(val);
         setTotalPages(totalPages > 0 ? totalPages : 0);
         setPageCurrent(params.page);
+      })
+      .catch((err) => {
+        setAssignment([]);
       });
   };
 
@@ -85,12 +97,13 @@ export default function Assignment() {
   };
 
   const handleChangePage = (page) => {
-    _refreshParams();
+    // _refreshParams();
     params.page = page;
     _fetchData();
   };
 
   const handleChangeSort = (target) => {
+    console.log(target);
     _refreshParams();
     if ("sortNumber" in target) {
       params.sortNo = target.sortNumber;
@@ -168,6 +181,12 @@ export default function Assignment() {
     _fetchData();
   };
 
+  const handleSearchKey = () => {
+    _refreshParams();
+    params.query = "";
+    _fetchData();
+  };
+
   const handleFilterState = (items) => {
     _refreshParams();
     params.StateAssignments = items;
@@ -176,7 +195,7 @@ export default function Assignment() {
 
   const handleFilterDate = (date) => {
     _refreshParams();
-    params.ReturnedDate = date ?? "";
+    params.AssignedDate = date ?? "";
     _fetchData();
   };
 
@@ -212,7 +231,7 @@ export default function Assignment() {
           <AssignmenttFilterDate onChange={handleFilterDate} />
         </Col>
         <Col>
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar onSearch={handleSearch} onChangeKey={handleSearchKey} />
         </Col>
         <Col style={{ textAlign: "right" }}>
           <Link to="/new-assignments">

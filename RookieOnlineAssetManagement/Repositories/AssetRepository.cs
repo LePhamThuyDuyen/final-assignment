@@ -2,7 +2,9 @@
 using RookieOnlineAssetManagement.Data;
 using RookieOnlineAssetManagement.Entities;
 using RookieOnlineAssetManagement.Enums;
+using RookieOnlineAssetManagement.Exceptions;
 using RookieOnlineAssetManagement.Models;
+using RookieOnlineAssetManagement.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,15 +21,11 @@ namespace RookieOnlineAssetManagement.Repositories
         }
         public async Task<AssetModel> CreateAssetAsync(AssetRequestModel assetRequest)
         {
+            await this.LocationIsExist(_dbContext, assetRequest.LocationId);
             var category = await _dbContext.Categories.FirstOrDefaultAsync(x => x.CategoryId == assetRequest.CategoryId);
             if (category == null)
             {
-                throw new Exception("Repository | Have not this category");
-            }
-            var location = await _dbContext.Locations.FirstOrDefaultAsync(x => x.LocationId == assetRequest.LocationId);
-            if (location == null)
-            {
-                throw new Exception("Repository | Have not this location");
+                throw new RepoException("Have not this category");
             }
             assetRequest.AssetId = category.ShortName + (100000 + category.NumIncrease + 1).ToString();
             var asset = new Asset
@@ -40,7 +38,7 @@ namespace RookieOnlineAssetManagement.Repositories
                 State = assetRequest.State,
                 LocationId = assetRequest.LocationId
             };
-            
+
             using var transaction = _dbContext.Database.BeginTransaction();
             try
             {
@@ -62,21 +60,21 @@ namespace RookieOnlineAssetManagement.Repositories
             }
             catch
             {
-                throw new Exception("Repository | Create Asset Fail");
+                throw new RepoException("Create Asset Fail");
             }
-            throw new Exception("Repository | Create Asset Fail");
+            throw new RepoException("Create Asset Fail");
         }
         public async Task<bool> DeleteAssetAsync(string id)
         {
             var assignment = await _dbContext.Assignments.FirstOrDefaultAsync(x => x.AssetId == id);
             if (assignment != null)
             {
-                throw new Exception("Repository | Have not this assignment");
+                throw new RepoException("This asset have a assignment");
             }
             var asset = await _dbContext.Assets.FirstOrDefaultAsync(x => x.AssetId == id);
             if (asset == null)
             {
-                throw new Exception("Repository | Have not this asset");
+                throw new RepoException("Have not this asset");
             }
             var deleted = _dbContext.Assets.Remove(asset);
             var result = _dbContext.SaveChanges();
@@ -84,14 +82,14 @@ namespace RookieOnlineAssetManagement.Repositories
             {
                 return true;
             }
-            throw new Exception("Repository | Delete asset fail");
+            throw new RepoException("Delete asset fail");
         }
         public async Task<AssetDetailModel> GetAssetByIdAsync(string id)
         {
             var asset = await _dbContext.Assets.Include(x => x.Category).Include(x => x.Location).FirstOrDefaultAsync(x => x.AssetId == id);
             if (asset == null)
             {
-                throw new Exception("Repository | Have not this asset");
+                throw new RepoException("Have not this asset");
             }
             var assetmodel = new AssetDetailModel
             {
@@ -109,11 +107,8 @@ namespace RookieOnlineAssetManagement.Repositories
         }
         public async Task<(ICollection<AssetModel> Datas, int TotalPage)> GetListAssetAsync(AssetRequestParams assetRequestParams)
         {
-            var location = await _dbContext.Locations.FirstOrDefaultAsync(x => x.LocationId == assetRequestParams.LocationId);
-            if(location==null)
-            {
-                throw new Exception("Repository | Have not this loaction");
-            }
+            await this.LocationIsExist(_dbContext, assetRequestParams.LocationId);
+            //filter
             var queryable = _dbContext.Assets.Include(x => x.Category).AsQueryable();
             queryable = queryable.Where(x => x.LocationId == assetRequestParams.LocationId);
             if (assetRequestParams.State != null)
@@ -128,57 +123,31 @@ namespace RookieOnlineAssetManagement.Repositories
             if (!string.IsNullOrEmpty(assetRequestParams.Query))
                 queryable = queryable.Where(x => x.AssetId.Contains(assetRequestParams.Query) || x.AssetName.Contains(assetRequestParams.Query));
             //sort
-            if (assetRequestParams.SortCode.HasValue)
-            {
-                if (assetRequestParams.SortCode.Value == SortBy.ASC)
-                    queryable = queryable.OrderBy(x => x.AssetId);
-                else
-                    queryable = queryable.OrderByDescending(x => x.AssetId);
-            }
-            else if (assetRequestParams.SortName.HasValue)
-            {
-                if (assetRequestParams.SortName.Value == SortBy.ASC)
-                    queryable = queryable.OrderBy(x => x.AssetName);
-                else
-                    queryable = queryable.OrderByDescending(x => x.AssetName);
-            }
-            else if (assetRequestParams.SortCate.HasValue)
-            {
-                if (assetRequestParams.SortCate.Value == SortBy.ASC)
-                    queryable = queryable.OrderBy(x => x.Category.CategoryName);
-                else
-                    queryable = queryable.OrderByDescending(x => x.Category.CategoryName);
-            }
-            else if (assetRequestParams.SortState.HasValue)
-            {
-                if (assetRequestParams.SortState.Value == SortBy.ASC)
-                    queryable = queryable.OrderBy(x => x.State);
-                else
-                    queryable = queryable.OrderByDescending(x => x.State);
-            }
-
-            var result = Paging<Asset>(queryable, assetRequestParams.PageSize, assetRequestParams.Page);
-            var list = await result.Sources.Select(x => new AssetModel
+            var q = queryable.Select(x => new AssetModel()
             {
                 AssetId = x.AssetId,
                 AssetName = x.AssetName,
                 CategoryName = x.Category.CategoryName,
                 State = x.State
-            }).ToListAsync();
+            });
+            q = this.SortData<AssetModel, AssetRequestParams>(q, assetRequestParams);
+            //paging
+            var result = this.Paging<AssetModel>(q, assetRequestParams.PageSize, assetRequestParams.Page);
+            var list = await result.Sources.ToListAsync();
             return (list, result.TotalPage);
         }
-        public async Task<ICollection<AssetModel>> GetListAssetForAssignmentAsync(string currentassetid, string locationid, string query, SortBy? AssetIdSort, SortBy? AssetNameSort, SortBy? CategoryNameSort)
+        public async Task<ICollection<AssetModel>> GetListAssetForAssignmentAsync(AssetAssignmentRequestParams requestParams)
         {
             var queryable = _dbContext.Assets.Include(x => x.Category).AsQueryable();
-            queryable = queryable.Where(x => x.LocationId == locationid);
-            var location = await _dbContext.Assets.FirstOrDefaultAsync(x => x.LocationId == locationid);
+            queryable = queryable.Where(x => x.LocationId == requestParams.LocationId);
+            var location = await _dbContext.Assets.FirstOrDefaultAsync(x => x.LocationId == requestParams.LocationId);
             if (location == null)
             {
-                throw new Exception("Repository | Have not this location");
+                throw new RepoException("Have not this location");
             }
             queryable = queryable.Where(x => x.State == (short)StateAsset.Avaiable);
-            if (!string.IsNullOrEmpty(query))
-                queryable = queryable.Where(x => x.AssetId.Contains(query) || x.AssetName.Contains(query) || x.Category.CategoryName.Contains(query));
+            if (!string.IsNullOrEmpty(requestParams.Query))
+                queryable = queryable.Where(x => x.AssetId.Contains(requestParams.Query) || x.AssetName.Contains(requestParams.Query) || x.Category.CategoryName.Contains(requestParams.Query));
             var list = await queryable.Select(x => new AssetModel
             {
                 AssetId = x.AssetId,
@@ -187,12 +156,12 @@ namespace RookieOnlineAssetManagement.Repositories
                 State = x.State
             }).ToListAsync();
 
-            if (!string.IsNullOrEmpty(currentassetid))
+            if (!string.IsNullOrEmpty(requestParams.CurrentAssetId))
             {
-                var currentasset = await _dbContext.Assets.Include(x => x.Category).FirstOrDefaultAsync(x => x.AssetId == currentassetid);
+                var currentasset = await _dbContext.Assets.Include(x => x.Category).FirstOrDefaultAsync(x => x.AssetId == requestParams.CurrentAssetId);
                 if (currentasset == null)
                 {
-                    throw new Exception("Repository | Have not asset");
+                    throw new RepoException(" Have not asset");
                 }
                 var currentassetmodel = new AssetModel
                 {
@@ -203,40 +172,17 @@ namespace RookieOnlineAssetManagement.Repositories
                 };
                 list.Add(currentassetmodel);
             }
-
-            if (AssetIdSort.HasValue)
-            {
-                if (AssetIdSort.Value == SortBy.ASC)
-                    list = list.OrderBy(x => x.AssetId).ToList();
-                else
-                    list = list.OrderByDescending(x => x.AssetId).ToList();
-            }
-            else if (AssetNameSort.HasValue)
-            {
-                if (AssetNameSort.Value == SortBy.ASC)
-                    list = list.OrderBy(x => x.AssetName).ToList();
-                else
-                    list = list.OrderByDescending(x => x.AssetName).ToList();
-            }
-            else if (CategoryNameSort.HasValue)
-            {
-                if (CategoryNameSort.Value == SortBy.ASC)
-                    list = list.OrderBy(x => x.CategoryName).ToList();
-                else
-                    list = list.OrderByDescending(x => x.CategoryName).ToList();
-            }
-            else
-            {
-                list = list.OrderBy(x => x.AssetId).ToList();
-            }
-            return list;
+            var q = list.AsQueryable();
+            q = this.SortData<AssetModel, AssetAssignmentRequestParams>(q, requestParams);
+            var finalList = q.ToList();
+            return finalList;
         }
         public async Task<ICollection<AssetHistoryModel>> GetListAssetHistoryAsync(string assetId)
         {
             var asset = await _dbContext.Assets.FirstOrDefaultAsync(x => x.AssetId == assetId);
             if (asset == null)
             {
-                throw new Exception("Repository | Have not asset");
+                throw new RepoException("  Have not asset");
             }
             var assetHistoryModel = await _dbContext.Assignments
                 .Where(x => x.AssetId == assetId && x.State == (int)StateAssignment.Completed)
@@ -256,16 +202,16 @@ namespace RookieOnlineAssetManagement.Repositories
             var asset = await _dbContext.Assets.Include(x => x.Category).FirstOrDefaultAsync(x => x.AssetId == id);
             if (asset == null)
             {
-                throw new Exception("Repository | Have not asset");
+                throw new RepoException("  Have not asset");
             }
-            if(asset.State==(int)StateAsset.Assigned)
+            if (asset.State == (int)StateAsset.Assigned)
             {
-                throw new Exception("Repository | State is assigned");
+                throw new RepoException(" State is assigned");
             }
             var assignment = await _dbContext.Assignments.FirstOrDefaultAsync(x => x.AssetId == assetRequest.AssetId);
             if (assignment != null)
             {
-                throw new Exception("Repository | Have assignment");
+                throw new RepoException("Have assignment");
             }
             asset.AssetName = assetRequest.AssetName;
             asset.Specification = assetRequest.Specification;
@@ -283,7 +229,7 @@ namespace RookieOnlineAssetManagement.Repositories
             {
                 return assetmodel;
             }
-            throw new Exception("Repository | Update asset fail");
+            throw new RepoException("Update asset fail");
         }
     }
 }

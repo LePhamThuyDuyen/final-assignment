@@ -4,6 +4,7 @@ import http from "../../ultis/httpClient";
 import AssetForm from "./assetForm";
 import { stateOptions } from "../../enums/assetState";
 import { useNSModals } from "../../containers/ModalContainer";
+import { PageContext } from "../../containers/PageLayout";
 
 const stateAssetEdit = stateOptions.slice(1);
 const stateAssetCreate = stateOptions.filter(
@@ -16,8 +17,9 @@ export default function AssetDetail(props) {
   const [nameHeader, setnameHeader] = React.useState("");
   const [stateForm, setStateForm] = React.useState([]);
   const history = useHistory();
+  const pageContext = React.useContext(PageContext);
   //modal
-  const { modalLoading } = useNSModals();
+  const { modalLoading, modalAlert } = useNSModals();
   React.useEffect(() => {
     if (id) {
       _fetchAssetData(id);
@@ -35,7 +37,12 @@ export default function AssetDetail(props) {
       .then((resp) => {
         setEdit(resp.data);
       })
-      .catch((err) => console.log(err));
+      .catch((err) => {
+        modalAlert.show({
+          title: "Error",
+          msg: err,
+        });
+      });
   };
 
   const handleSubmit = (asset) => {
@@ -46,14 +53,18 @@ export default function AssetDetail(props) {
         .put("/api/asset/" + id, asset)
         .then((resp) => {
           console.log(resp.data);
-          history.push({
-            pathname: "/assets",
-            state: {
-              data: resp.data,
-            },
+          pageContext.setData({
+            data: resp.data,
+            key: "asset",
+          });
+          history.push("/assets");
+        })
+        .catch((err) => {
+          modalAlert.show({
+            title: "Error",
+            msg: err.response.data,
           });
         })
-        .catch((err) => console.log(err))
         .finally(() => {
           modalLoading.close();
         });
@@ -61,9 +72,18 @@ export default function AssetDetail(props) {
       http
         .post("/api/asset", asset)
         .then((resp) => {
+          pageContext.setData({
+            data: resp.data,
+            key: "asset",
+          });
           props.history.push("/assets");
         })
-        .catch((err) => console.log(err))
+        .catch((err) => {
+          modalAlert.show({
+            title: "Error",
+            msg: err.response.data,
+          });
+        })
         .finally(() => {
           modalLoading.close();
         });

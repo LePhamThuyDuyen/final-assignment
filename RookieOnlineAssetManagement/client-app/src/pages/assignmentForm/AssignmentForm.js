@@ -8,6 +8,7 @@ import UserSelect from "./UserSelect";
 import http from "../../ultis/httpClient.js";
 import NSSelectModal, { useNSSelectModal } from "../../common/NSSelectModal";
 import { useNSModals } from "../../containers/ModalContainer";
+import { PageContext } from "../../containers/PageLayout";
 
 export default function UserForm() {
   const { id } = useParams();
@@ -22,6 +23,7 @@ export default function UserForm() {
   const [date, setDate] = React.useState(formatDate(Date.now()));
   const [note, setNote] = React.useState("");
   const history = useHistory();
+  const pageContext = React.useContext(PageContext);
   //modal
   const modalSelectAsset = useNSSelectModal();
   const modalSelectUser = useNSSelectModal();
@@ -51,13 +53,12 @@ export default function UserForm() {
 
   React.useEffect(() => {
     validateData();
-  })
+  });
 
   const validateData = () => {
     if (getUserId && getAssetId && note && date) setValid(true);
-    else setValid(false)
-  }
-
+    else setValid(false);
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -76,6 +77,10 @@ export default function UserForm() {
       http
         .put("/api/assignments/" + id, assignment)
         .then((resp) => {
+          pageContext.setData({
+            data: resp.data,
+            key: "assignment",
+          });
           history.push("/assignments");
         })
         .catch((err) => console.log(err))
@@ -86,6 +91,10 @@ export default function UserForm() {
       http
         .post("/api/assignments", assignment)
         .then((resp) => {
+          pageContext.setData({
+            data: resp.data,
+            key: "assignment",
+          });
           history.push("/assignments");
         })
         .catch((err) => console.log(err))
@@ -106,24 +115,20 @@ export default function UserForm() {
   const handleSelectedAsset = (assetId, assetName) => {
     setGetAssetId(assetId);
     setFindNameAsset(assetName);
-
   };
 
   const handleSelectedUser = (userId, userName) => {
     setGetUserId(userId);
     setFindNameUser(userName);
-
   };
 
   const handleChangeDate = (event) => {
-    setDate(event.target.value)
-
-  }
+    setDate(event.target.value);
+  };
 
   const handleChangeNote = (event) => {
-    setNote(event.target.value)
-
-  }
+    setNote(event.target.value);
+  };
 
   return (
     <>
@@ -173,7 +178,7 @@ export default function UserForm() {
               className="name-new-asset"
               name="assignedDate"
               value={date}
-              onClick={handleChangeDate}
+              onChange={handleChangeDate}
               invalid={date ? false : true}
             />
           </Col>

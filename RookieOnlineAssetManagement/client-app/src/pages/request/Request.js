@@ -59,6 +59,9 @@ export default function Request() {
         setRequests(data);
         setTotalPages(totalPages > 0 ? totalPages : 0);
         setCurrentPage(params.page);
+      })
+      .catch((err) => {
+        setRequests([]);
       });
   };
 
@@ -83,7 +86,7 @@ export default function Request() {
       onSubmit: (item) => {
         modalLoading.show();
         http
-          .put("/api/ReturnRequests/cancel?assignmentId=" + item.assignmentId)
+          .put("/api/ReturnRequests/cancel/" + item.assignmentId)
           .then((resp) => {
             _refreshParams();
             _fetchData();
@@ -104,7 +107,7 @@ export default function Request() {
       onSubmit: (item) => {
         modalLoading.show();
         http
-          .put("/api/ReturnRequests/accept?assignmentId=" + item.assignmentId)
+          .put("/api/ReturnRequests/accept/" + item.assignmentId)
           .then((resp) => {
             _refreshParams();
             _fetchData();
@@ -135,18 +138,24 @@ export default function Request() {
     _fetchData();
   };
 
+  const handleSearchKey = () => {
+    _refreshParams();
+    params.query = "";
+    _fetchData();
+  };
+
   const handleChangeSort = (target) => {
     _refreshParams();
     if ("sortNumber" in target) {
       params.sortNo = target.sortNumber;
-      target = { sortAssetId: target.sortNumber };
+      target = { SortAssetId: target.sortNumber };
     }
     params = { ...params, ...target };
     if (target < 0) return (params.sortCode = null);
     _fetchData();
   };
   const handleChangePage = (page) => {
-    _refreshParams();
+    // _refreshParams();
     params.page = page;
     _fetchData();
   };
@@ -175,8 +184,8 @@ export default function Request() {
         <Col xs={2}>
           <RequestFilterDate onChange={handleFilterDate} />
         </Col>
-        <Col xs={3}>
-          <SearchBar onSearch={handleSearch} />
+        <Col xs={4}>
+          <SearchBar onSearch={handleSearch} onChangeKey={handleSearchKey} />
         </Col>
       </Row>
       <RequestTable

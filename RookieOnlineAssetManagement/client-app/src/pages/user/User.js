@@ -10,6 +10,7 @@ import NSConfirmModal, { useNSConfirmModal } from "../../common/NSConfirmModal";
 import NSDetailModal, { useNSDetailModal } from "../../common/NSDetailModal";
 import UserFilterState from "./UserFilterType";
 import { formatDate, _createQuery } from "../../ultis/helper";
+import { PageContext } from "../../containers/PageLayout.js";
 
 let params = {};
 
@@ -26,6 +27,7 @@ export default function User() {
   const [totalPages, setTotalPages] = React.useState(0);
   const [pageCurrent, setPageCurrent] = React.useState(0);
   const [itemDetail, setItemDetail] = React.useState(null);
+  const pageContext = React.useContext(PageContext);
 
   const history = useHistory();
   //modal
@@ -60,17 +62,31 @@ export default function User() {
   }, []);
 
   const _fetchData = () => {
-    http.get("/api/users" + _createQuery(params)).then((resp) => {
-      setUser(resp.data);
-      let totalPages = resp.headers["total-pages"];
-      setTotalPages(totalPages > 0 ? totalPages : 0);
-      setPageCurrent(params.page);
-    });
+    pageContext?.payload ? (params.pagesize = 7) : (params.pagesize = 8);
+    //
+    http
+      .get("/api/users" + _createQuery(params))
+      .then((resp) => {
+        let val = resp.data;
+        if (pageContext?.payload) {
+          if (pageContext.payload.key === "user") {
+            val.unshift(pageContext?.payload.data);
+            pageContext.setData(null);
+          }
+        }
+        setUser(val);
+        let totalPages = resp.headers["total-pages"];
+        setTotalPages(totalPages > 0 ? totalPages : 0);
+        setPageCurrent(params.page);
+      })
+      .catch((err) => {
+        setUser([]);
+      });
   };
 
   //handleClick
   const handleChangePage = (page) => {
-    _refreshParams();
+    // _refreshParams();
     params.page = page;
     _fetchData();
   };
@@ -189,7 +205,7 @@ export default function User() {
             </tr>
             <tr>
               <td>Gender : </td>
-              <td>{itemDetail?.gender ? "MALE" : "FAMALE"}</td>
+              <td>{itemDetail?.gender ? "MALE" : "FEMALE"}</td>
             </tr>
             <tr>
               <td>Joined Date :</td>

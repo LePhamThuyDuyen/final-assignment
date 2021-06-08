@@ -13,6 +13,7 @@ import NSConfirmModal, {
   useNSConfirmModal,
 } from "../../common/NSConfirmModal.js";
 import NSDetailModal, { useNSDetailModal } from "../../common/NSDetailModal";
+import { PageContext } from "../../containers/PageLayout.js";
 
 let params = {};
 
@@ -30,6 +31,7 @@ export default function Asset(props) {
   const [pageCurrent, setPageCurrent] = React.useState(0);
   const [itemDetail, setItemDetail] = React.useState(null);
   const [itemHistory, setItemHistory] = React.useState(null);
+  const pageContext = React.useContext(PageContext);
   const history = useHistory();
   //modal
   const modalConfirm = useNSConfirmModal();
@@ -53,16 +55,30 @@ export default function Asset(props) {
   }, []);
 
   const _fetchData = () => {
-    http.get("/api/asset" + _createQuery(params)).then((resp) => {
-      setAssets(resp.data);
-      let totalPages = resp.headers["total-pages"];
-      setTotalPages(totalPages > 0 ? totalPages : 0);
-      setPageCurrent(params.page);
-    });
+    pageContext?.payload ? (params.pagesize = 7) : (params.pagesize = 8);
+    //
+    http
+      .get("/api/asset" + _createQuery(params))
+      .then((resp) => {
+        let val = resp.data;
+        if (pageContext?.payload) {
+          if (pageContext.payload.key === "asset") {
+            val.unshift(pageContext?.payload.data);
+            pageContext.setData(null);
+          }
+        }
+        setAssets(val);
+        let totalPages = resp.headers["total-pages"];
+        setTotalPages(totalPages > 0 ? totalPages : 0);
+        setPageCurrent(params.page);
+      })
+      .catch((err) => {
+        setAssets([]);
+      });
   };
 
   const handleChangePage = (page) => {
-    _refreshParams();
+    // _refreshParams();
     params.page = page;
     _fetchData();
   };
@@ -214,18 +230,18 @@ export default function Asset(props) {
             </tr>
             <tr>
               <td>History :</td>
-              {itemHistory &&
-                itemHistory.map((item) => {
-                  return (
-                    <Table>
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Assigned to</th>
-                          <th>Assigned by</th>
-                          <th>Returned date</th>
-                        </tr>
-                      </thead>
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Assigned to</th>
+                    <th>Assigned by</th>
+                    <th>Returned date</th>
+                  </tr>
+                </thead>
+                {itemHistory &&
+                  itemHistory.map((item) => {
+                    return (
                       <tbody>
                         <tr>
                           <td>{formatDate(item.date)}</td>
@@ -234,9 +250,9 @@ export default function Asset(props) {
                           <td>{formatDate(item.returnedDate)}</td>
                         </tr>
                       </tbody>
-                    </Table>
-                  );
-                })}
+                    );
+                  })}
+              </Table>
             </tr>
           </tbody>
         </Table>

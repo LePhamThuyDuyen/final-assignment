@@ -9,7 +9,7 @@ const tableTitles = [
   {
     title: "No",
     nameSort: "sortNumber",
-    width: "10%",
+    width: "1%",
   },
   {
     title: "Asset Code",
@@ -54,6 +54,7 @@ export default function RequestTable({
   onChangeSort,
   onAccept,
   onDeny,
+  pageSelected,
 }) {
   const itemRender = (request) => (
     <>
@@ -114,6 +115,7 @@ export default function RequestTable({
       itemRender={itemRender}
       onChangeSort={onChangeSort}
       onChangePage={onChangePage}
+      pageSelected={pageSelected}
     />
   );
 }

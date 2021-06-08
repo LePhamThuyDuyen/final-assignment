@@ -1,6 +1,8 @@
 ﻿using IdentityServer4.Extensions;
+using RookieOnlineAssetManagement.Exceptions;
 using RookieOnlineAssetManagement.Models;
 using RookieOnlineAssetManagement.Repositories;
+using RookieOnlineAssetManagement.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,30 +29,15 @@ namespace RookieOnlineAssetManagement.Services
         {
             if (returnRequestParams.ReturnedDate != null)
             {
-                var checkDate = IsDateTime(returnRequestParams.ReturnedDate);
+                var checkDate = DateTimeHelper.IsDateTime(returnRequestParams.ReturnedDate);
                 if (checkDate == false)
-                    throw new Exception("Return date not valid !");
+                    throw new ServiceException("Return date not valid !");
             }
             if (returnRequestParams.Page < 0 || returnRequestParams.PageSize < 0)
             {
-                throw new Exception("Page and Page size not valid !");
+                throw new ServiceException("Page and Page size not valid !");
             }
             return await _returnRequestRepository.GetListReturnRequestAsync(returnRequestParams);
-        }
-
-        public bool IsDateTime(string text)
-        {
-            DateTime dateTime;
-            bool isDateTime;
-            // Check for empty string.
-            if (string.IsNullOrEmpty(text))
-            {
-                return false;
-            }
-
-            isDateTime = DateTime.TryParse(text, out dateTime);
-
-            return isDateTime;
         }
     }
 }

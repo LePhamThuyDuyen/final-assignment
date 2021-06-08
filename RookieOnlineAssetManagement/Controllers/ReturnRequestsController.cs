@@ -25,21 +25,24 @@ namespace RookieOnlineAssetManagement.Controllers
         [HttpPost]
         public async Task<ActionResult<ReturnRequestModel>> CreateAsync(string assignmentId)
         {
+            if (string.IsNullOrEmpty(assignmentId)) return BadRequest("Assignment Id is not valid ");
             var requestedUserId = HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             return Ok(await _returnRequestService.CreateReturnRequestAsync(assignmentId, requestedUserId));
         }
-        [HttpPut("accept")]
+        [HttpPut("accept/{assignmentId}")]
         [Authorize("ADMIN")]
         public async Task<ActionResult<bool>> ChangeStateAcceptAsync(string assignmentId)
         {
+            if (string.IsNullOrEmpty(assignmentId)) return BadRequest("Assignment Id is not valid "); ;
             bool accept = true;
             var acceptedUserId = HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             return Ok(await _returnRequestService.ChangeStateAsync(accept, assignmentId, acceptedUserId));
         }
-        [HttpPut("cancel")]
+        [HttpPut("cancel/{assignmentId}")]
         [Authorize("ADMIN")]
         public async Task<ActionResult<bool>> ChangeStateCancelAsync(string assignmentId)
         {
+            if (string.IsNullOrEmpty(assignmentId)) return BadRequest("Assignment Id is not valid ");
             bool cancel = false;
             var acceptedUserId = HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             return Ok(await _returnRequestService.ChangeStateAsync(cancel, assignmentId, acceptedUserId));

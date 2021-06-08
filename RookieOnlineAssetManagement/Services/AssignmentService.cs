@@ -1,6 +1,8 @@
 ﻿using RookieOnlineAssetManagement.Enums;
+using RookieOnlineAssetManagement.Exceptions;
 using RookieOnlineAssetManagement.Models;
 using RookieOnlineAssetManagement.Repositories;
+using RookieOnlineAssetManagement.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,14 +15,14 @@ namespace RookieOnlineAssetManagement.Services
         private readonly IAssignmentRepository _assignmentRepository;
         public AssignmentService(IAssignmentRepository assignmentRepository)
         {
-            _assignmentRepository = assignmentRepository;
+            _assignmentRepository = assignmentRepository;        
         }
         public async Task<AssignmentModel> CreateAssignmentAsync(AssignmentRequestModel assignmentRequestModel)
         {
-            var checkassigneddate = CheckDateGreaterThan(DateTime.Now, assignmentRequestModel.AssignedDate.Value);
+            var checkassigneddate = DateTimeHelper.CheckDateGreaterThan(DateTime.Now, assignmentRequestModel.AssignedDate.Value);
             if (checkassigneddate == false)
             {
-                throw new Exception("Assigned Date is smaller than Today");
+                throw new ServiceException("Assigned Date is smaller than Today");
             }
             return await _assignmentRepository.CreateAssignmentAsync(assignmentRequestModel);
         }
@@ -47,18 +49,6 @@ namespace RookieOnlineAssetManagement.Services
         public async Task<AssignmentDetailModel> GetAssignmentById(string id)
         {
             return await _assignmentRepository.GetAssignmentById(id);
-        }
-
-        public bool CheckDateGreaterThan(DateTime SmallDate, DateTime BigDate)
-        {
-            if (SmallDate.Date > BigDate.Date)
-            {
-                return false;
-            }
-            else
-            {
-                return true;
-            }
         }
     }
 }
